@@ -49,7 +49,7 @@ class ElectrodeArrayDetectorWidget(QtGui.QWidget):
         self._set_initial_ui_state()
         self._update_ui_state()
 
-        self._load_saved_data = True
+        self._load_saved_data = False
 
         self._make_connections()
 

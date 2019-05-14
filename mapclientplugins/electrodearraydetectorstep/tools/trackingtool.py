@@ -75,7 +75,7 @@ class TrackingTool(object):
         image_roi = self._convert_to_image_roi(zinc_sceneviewer, element, rectangle_description)
         roi_for_cv2 = [image_roi[0], image_roi[1], image_roi[0]+image_roi[2], image_roi[1]+image_roi[3]]
         image_key_points = self._analyse_roi(image_index, roi_for_cv2)
-        image_points = image_key_points.tolist()
+        image_points = image_key_points[0].tolist()
         key_points = self._image_plane_model.convert_to_model_coordinates(image_points)
         # key_points = image_points
         self._tracking_points_model.create_electrode_key_points(key_points)

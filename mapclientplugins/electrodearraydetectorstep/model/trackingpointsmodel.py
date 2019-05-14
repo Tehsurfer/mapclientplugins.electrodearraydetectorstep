@@ -32,6 +32,9 @@ class KeyPoint(object):
     def get_creation_time(self):
         return self._creation_time
 
+    def set_label(self, label):
+        self._label = label
+
     def get_node(self):
         return self._node
 
@@ -129,7 +132,40 @@ class TrackingPointsModel(object):
 
             description[key_point.get_label()] = node_locations
 
-        return description
+        ordered_description = self._order_node_numbers(description)
+        return ordered_description
+
+    def _order_node_numbers(self, description):
+
+        # Format out of dictionary
+        node_array = []
+        for i in range(1,65):
+            coords = description[f'{i}'][0]
+            coords.append(i)
+            node_array.append(coords)
+
+        # Sort by X and Y values
+        sortx = sorted(node_array, key=lambda node_array: node_array[0])
+        sorty = sorted(node_array, key=lambda node_array: node_array[1])
+
+        # Add to sorted list based off max(y) while progressively excluding min(x) values
+        sorted_list = []
+        j = 0
+        while len(sorty) != 0:
+            if sorty[-1] in sortx[j*8:]:
+                sorted_list.append(sorty[-1])
+                sortx.remove(sorty[-1])
+                sorty.remove(sorty[-1])
+            j = j + 1
+            if j > 8:
+                j = 0
+
+        # Modify our dictionary
+        ordered_description = description
+        for i, new_index in enumerate(sorted_list):
+            ordered_description[f'{new_index[3]}'] = description[f'{i+1}']
+
+        return ordered_description
 
     def remove_node(self, identifier):
         node = self._get_node(identifier)
