@@ -3,7 +3,7 @@ from bisect import bisect_left
 
 from opencmiss.zinc.status import OK as CMISS_OK
 from opencmiss.utils.zinc import create_finite_element_field, create_node, AbstractNodeDataObject
-
+import numpy as np
 
 class NodeCreator(AbstractNodeDataObject):
 
@@ -139,7 +139,7 @@ class TrackingPointsModel(object):
 
         # Format out of dictionary
         node_array = []
-        for i in range(1,65):
+        for i in range(1, 65):
             coords = description[f'{i}'][0]
             coords.append(i)
             node_array.append(coords)
@@ -150,20 +150,66 @@ class TrackingPointsModel(object):
 
         # Add to sorted list based off max(y) while progressively excluding min(x) values
         sorted_list = []
+        storage_list = []
         j = 0
-        while len(sorty) != 0:
-            if sorty[-1] in sortx[j*8:]:
-                sorted_list.append(sorty[-1])
-                sortx.remove(sorty[-1])
-                sorty.remove(sorty[-1])
-            j = j + 1
+
+        # Our loop ends if all elements have been alocated
+        while len(sortx) != 0:
+
+            # Figure what our minimum y value is
+            if j == 0:
+                miny = 0
+            elif (j * 8 - len(storage_list) - len(sorted_list) - 1) <= 0:
+                miny = 0
+            else:
+                miny = j * 8 - len(storage_list) - len(sorted_list) - 1
+
+            # Check if we can add this point to the ordered list next
+            add_next = False
+            if sortx[0] in sorty[miny:]:
+                if j == 0 or sorted_list[-1][1] < sortx[0][1]:
+                    add_next = True
+
+            # Add it to sorted list if we can
+            if add_next:
+                sorted_list.append(sortx[0])
+                sorty.remove(sortx[0])
+                sortx.remove(sortx[0])
+                j = j + 1
+            # otherwise leave it out of the search until we get to the next row
+            else:
+                storage_list.append(sortx[0])
+                sorty.remove(sortx[0])
+                sortx.remove(sortx[0])
+
+            # Reset our search at the end of a row
             if j > 8:
+                if len(storage_list) > 0 and len(sortx) > 0:
+                    sortx = np.concatenate((sortx, storage_list)).tolist()
+                    sorty = np.concatenate((sorty, storage_list)).tolist()
+                    storage_list = []
+                sortx = sorted(sortx, key=lambda sortx: sortx[0])
+                sorty = sorted(sorty, key=lambda sorty: sorty[1])
                 j = 0
 
+            # Check for the case where our search has gone awry
+            if len(sortx) == 0 and len(storage_list) >= 8:
+                sortx = storage_list
+                sorty = storage_list
+                storage_list = []
+                sortx = sorted(sortx, key=lambda sortx: sortx[0])
+                sorty = sorted(sorty, key=lambda sorty: sorty[1])
+                j = 0
+
+        # Add remaining values if search went awry
+        if len(storage_list) > 0:
+            sorted_list = np.concatenate((sorted_list, storage_list)).tolist()
+
         # Modify our dictionary
-        ordered_description = description
+        ordered_description = {}
         for i, new_index in enumerate(sorted_list):
-            ordered_description[f'{new_index[3]}'] = description[f'{i+1}']
+            ordered_description[f'{i + 1}'] = description[f'{int(new_index[3])}']
+        ordered_description['time_array'] = description['time_array']
 
         return ordered_description
 
