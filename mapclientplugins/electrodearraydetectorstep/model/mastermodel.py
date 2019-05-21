@@ -29,7 +29,7 @@ class MasterModel(object):
         self._time_value_update = None
         self._frame_index_update = None
 
-        self._image_plane_model = ImagePlaneModel(self)
+        self._image_plane_model = ImagePlaneModel(self, image_context_data.get_video_path())
         self._image_plane_model.set_image_information(image_context_data.get_image_file_names(),
                                                       image_context_data.get_frames_per_second(),
                                                       image_context_data.get_image_dimensions())

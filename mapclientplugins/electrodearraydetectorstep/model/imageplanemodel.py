@@ -1,11 +1,11 @@
 from __future__ import division
 
 from opencmiss.utils.maths.algorithms import calculate_line_plane_intersection
-
+import cv2
 
 class ImagePlaneModel(object):
 
-    def __init__(self, master_model):
+    def __init__(self, master_model, video_path):
         self._master_model = master_model
         self._region = None
         self._frames_per_second = -1
@@ -14,6 +14,8 @@ class ImagePlaneModel(object):
         self._duration_field = None
         self._image_based_material = None
         self._scaled_coordinate_field = None
+        self._time_sequence = []
+        self._video_path = video_path
 
         self._initialise()
 
@@ -24,8 +26,11 @@ class ImagePlaneModel(object):
         field_module = self._region.getFieldmodule()
         self._scaled_coordinate_field = field_module.findFieldByName('scaled_coordinates')
         self._duration_field = field_module.findFieldByName('duration')
+        self._image_field = field_module.findFieldByName('volume_image')
+        self._image_field = self._image_field.castImage()
         material_module = context.getMaterialmodule()
         self._image_based_material = material_module.findMaterialByName('images')
+        self.cap = cv2.VideoCapture(self._video_path)
 
     def set_image_information(self, image_file_names, frames_per_second, image_dimensions):
         self._images_file_name_listing = image_file_names
@@ -53,6 +58,12 @@ class ImagePlaneModel(object):
     def get_image_file_name_at(self, index):
         return self._images_file_name_listing[index]
 
+    def get_image_at(self, index):
+        self.cap.set(1, index)
+        res, frame = self.cap.read()
+        frame = cv2.flip(frame, 0)
+        return frame
+
     def calculate_image_pixels_rectangle(self, top_left_mesh_location, bottom_right_mesh_location):
         """
         The origin for the rectangle in the image is the top left corner, the mesh locations are given from
@@ -65,6 +76,7 @@ class ImagePlaneModel(object):
         field_module.beginChange()
         field_cache = field_module.createFieldcache()
         field_cache.setMeshLocation(top_left_mesh_location[0], top_left_mesh_location[1])
+
         _, top_left_values = self._scaled_coordinate_field.evaluateReal(field_cache, 3)
         field_cache.setMeshLocation(bottom_right_mesh_location[0], bottom_right_mesh_location[1])
         _, bottom_right_values = self._scaled_coordinate_field.evaluateReal(field_cache, 3)
@@ -89,7 +101,7 @@ class ImagePlaneModel(object):
         return self._convert_point_coordinates(model_points)
 
     def get_time_for_frame_index(self, index):
-        frame_count = len(self._images_file_name_listing)
+        frame_count = self.get_frame_count()
         duration = frame_count / self._frames_per_second
         frame_separation = 1 / frame_count
         initial_offset = frame_separation / 2
@@ -100,4 +112,13 @@ class ImagePlaneModel(object):
         duration = frame_count / self._frames_per_second
         frame_separation = 1 / frame_count
         initial_offset = frame_separation / 2
-        return int((time / duration - initial_offset) / frame_separation + 0.5) + 1
+
+        frame_id = int((time / duration - initial_offset) / frame_separation + 0.5) + 1
+
+        # self._image_field.setBuffer(self._images_file_name_listing[frame_id])
+        self.cap.set(1, frame_id)
+        res, frame = self.cap.read()
+        frame = cv2.flip(frame, 0)
+        self._image_field.setBuffer(frame.tobytes())
+        return frame_id
+
